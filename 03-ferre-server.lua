@@ -6,9 +6,9 @@ local fd	  = require'carlos.fold'
 
 local receive	  = require'carlos.ferre'.receive
 local send	  = require'carlos.ferre'.send
-local getFruit	  = require'carlos.ferre'.getFruit
 local pollin	  = require'lzmq'.pollin
 local context	  = require'lzmq'.context
+local keypair	  = require'lzmq'.keypair
 
 local format	  = require'string'.format
 local concat	  = table.concat
@@ -27,7 +27,8 @@ local UPDATES	 = 'tcp://*:5610'
 local SPIES	 = 'inproc://espias'
 local SKS	 = {}
 
---------------------------------
+local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
+
 -- Local function definitions --
 --------------------------------
 --
@@ -40,7 +41,7 @@ local SKS	 = {}
 -- Initialize servers
 local CTX = context()
 
-local server = assert(CTX:socket'ROUTER')
+local ups = assert(CTX:socket'ROUTER')
 --[[ -- -- -- -- --
 -- * MONITOR *
 local spy = assert(CTX:socket'PAIR')
@@ -48,9 +49,11 @@ assert( server:monitor( SPIES ) )
 assert( spy:connect( SPIES ) )
 -- -- -- -- -- --]]
 -- ***********
-assert( server:notify(false) )
+--assert( ups:notify(false) )
 
-assert( server:bind( UPDATES ) )
+assert( ups:curve( secret ) )
+
+assert( ups:bind( UPDATES ) )
 
 print('\nSuccessfully bound to:', UPDATES, '\n')
 --[[ -- -- -- -- --
@@ -64,7 +67,7 @@ print('\nSuccessfully bound to:', UPSTREAM, '\n')
 ---[[
 --]]
 print( 'Starting servers ...', '\n' )
-sleep(1)
+--sleep(1)
 
 
 --
@@ -72,25 +75,12 @@ while true do
 
     print'+\n'
 
-    if pollin{msgs} then -- , spy
+    if pollin{ups} then -- msgs, spy
 
-	if msgs:events() == 'POLLIN' then
-	    print( switch(msgs, server), '\n' )
-	end
-
-	if spy:events() == 'POLLIN' then
-	    local ev, mm = receive(spy)
-	    print( ev, '\n' )
-	    if mm[1]:match'tcp' then
-		local sk = toint(ev:match'%d+$')
-		if ev:match'DISCONNECTED' then
---		    print( ev, '\n' )
-		    print( 'Bye bye', sayonara(sk), '\n')
-		elseif ev:match'ACCEPTED' then
---		    print( ev, '\n' )
-		    print( handshake(server, sk), '\n' )
-		end
-	    end
+	if ups:events() == 'POLLIN' then
+	    local id, msg = receive( ups )
+	    msg = msg[1]
+	    print( id, msg )
 	end
 
     end
