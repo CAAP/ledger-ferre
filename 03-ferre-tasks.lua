@@ -56,15 +56,15 @@ _ENV = nil -- or M
 --
 local SEMANA	 = 3600 * 24 * 7
 local HOY	 = date('%d-%b-%y', now())
-local PRINTER	 = 'nc -N 192.168.3.21 9100'
+--local PRINTER	 = 'nc -N 192.168.3.21 9100'
 
 local DOWNSTREAM = 'ipc://downstream.ipc' -- 'tcp://192.168.3.100:5050' -- 
-local UPSTREAM   = 'ipc://upstream.ipc' -- 'tcp://192.168.3.100:5060' -- 
+--local UPSTREAM   = 'ipc://upstream.ipc' -- 'tcp://192.168.3.100:5060' -- 
 
-local LEDGER	 = 'tcp://149.248.21.161:5610' -- 'vultr'
-local SRVK	 = "*dOG4ev0i<[2H(*GJC2e@6f.cC].$on)OZn{5q%3"
+--local LEDGER	 = 'tcp://149.248.21.161:5610' -- 'vultr'
+--local SRVK	 = "*dOG4ev0i<[2H(*GJC2e@6f.cC].$on)OZn{5q%3"
 
-local SUBS	 = { 'ticket', 'presupuesto', 'update', 'bixolon', 'pagado', 'adjust', 'faltante' }
+local SUBS	 = { 'ticket', 'presupuesto', 'update', 'pagado', 'adjust', 'faltante' } -- 'bixolon', 
 
 local TABS	 = {tickets = 'uid, tag, prc, clave, desc, costol NUMBER, unidad, precio NUMBER, unitario NUMBER, qty INTEGER, rea INTEGER, totalCents INTEGER, uidSAT',
 		   updates = 'vers INTEGER PRIMARY KEY, clave, campo, valor',
@@ -247,6 +247,7 @@ end
 
 local function fields(a, t) return fd.reduce(a, fd.map(function(k) return t[k] end), fd.into, {}) end
 
+--[[
 local function bixolon(uid, conn)
     local HEAD = {'tag', 'uid', 'total', 'nombre'}
     local DATOS = {'clave', 'desc', 'qty', 'rea', 'unitario', 'subTotal'}
@@ -266,6 +267,7 @@ local function bixolon(uid, conn)
 
     return true
 end
+--]]
 
 ---------------------------------
 -- Program execution statement --
@@ -305,7 +307,7 @@ assert( msgr:connect( UPSTREAM ) )
 
 print('\nSuccessfully connected to:', UPSTREAM, '\n')
 --
---]] -- -- -- -- --
+-- -- -- -- -- --
 --
 local www = assert(CTX:socket'DEALER')
 
@@ -317,7 +319,7 @@ assert( www:connect( LEDGER ) )
 
 print('\nSuccessfully connected to:', LEDGER)
 --
--- -- -- -- -- --
+--]] -- -- -- -- --
 --
 -- Store PEOPLE values
 --
@@ -357,7 +359,7 @@ print'+\n'
 	local qry = format(QUID, 'LIKE', uid)
 	local m = jsonName(fd.first(WEEK.query(qry), function(x) return x end))
 --	msgr:send_msg(format('feed %s', m))
-	bixolon(uid, WEEK)
+--	bixolon(uid, WEEK)
 	www:send_msg( msg ) -- WWW
 	print(m, '\n')
 
@@ -367,14 +369,14 @@ print'+\n'
 --	msgr:send_msg(format('%s update %s', fruit, date('%FT%T', now()):sub(1, 10)))
 	www:send_msg( msg ) -- WWW
 	print('Data updated correctly\n')
-
+--[[
     elseif cmd == 'bixolon' then
 	local uid = msg:match'uid=([^!]+)'
 --	local uid = msg:match'%s([^!]+)'
 	local week = uid2week( uid )
 	bixolon(uid, which(week))
 	print('Printing data ...\n')
-
+--]]
     elseif cmd == 'adjust' then
 	local vers = asnum(msg:match'vers=(%d+)')
 	local fruit = msg:match'fruit=(%a+)'
