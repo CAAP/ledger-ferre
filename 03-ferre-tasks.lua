@@ -58,8 +58,8 @@ local SEMANA	 = 3600 * 24 * 7
 local HOY	 = date('%d-%b-%y', now())
 local PRINTER	 = 'nc -N 192.168.3.21 9100'
 
-local DOWNSTREAM = 'tcp://192.168.3.100:5050' -- 'ipc://downstream.ipc'
-local UPSTREAM   = 'tcp://192.168.3.100:5060' -- 'ipc://upstream.ipc'
+local DOWNSTREAM = 'ipc://downstream.ipc' -- 'tcp://192.168.3.100:5050' -- 
+local UPSTREAM   = 'ipc://upstream.ipc' -- 'tcp://192.168.3.100:5060' -- 
 
 local LEDGER	 = 'tcp://149.248.21.161:5610' -- 'vultr'
 local SRVK	 = "*dOG4ev0i<[2H(*GJC2e@6f.cC].$on)OZn{5q%3"
@@ -297,7 +297,7 @@ fd.reduce(SUBS, function(s) assert(tasks:subscribe(s))  end)
 print('\nSuccessfully connected to:', DOWNSTREAM)
 print('And successfully subscribed to:', concat(SUBS, '\t'), '\n')
 --
--- -- -- -- -- --
+--[[ -- -- -- -- --
 --
 local msgr = assert(CTX:socket'PUSH')
 
@@ -305,7 +305,7 @@ assert( msgr:connect( UPSTREAM ) )
 
 print('\nSuccessfully connected to:', UPSTREAM, '\n')
 --
--- -- -- -- -- --
+--]] -- -- -- -- --
 --
 local www = assert(CTX:socket'DEALER')
 
@@ -314,6 +314,8 @@ assert( www:set_id'FA-BJ-01' )
 assert( keypair():client(www, SRVK) )
 
 assert( www:connect( LEDGER ) )
+
+print('\nSuccessfully connected to:', LEDGER)
 --
 -- -- -- -- -- --
 --
@@ -344,7 +346,7 @@ print'+\n'
 	pcall(WEEK.exec(format(QPAY, uid)))
 	local qry = format(QUID, 'LIKE', uid)
 	local m = jsonName(fd.first(WEEK.query(qry), function(x) return x end))
-	msgr:send_msg(format('feed %s', m))
+--	msgr:send_msg(format('feed %s', m))
 	www:send_msg( msg ) -- WWW
 	print(m, '\n')
 
@@ -354,7 +356,7 @@ print'+\n'
 	addTicket(WEEK, PRECIOS, msg, uid)
 	local qry = format(QUID, 'LIKE', uid)
 	local m = jsonName(fd.first(WEEK.query(qry), function(x) return x end))
-	msgr:send_msg(format('feed %s', m))
+--	msgr:send_msg(format('feed %s', m))
 	bixolon(uid, WEEK)
 	www:send_msg( msg ) -- WWW
 	print(m, '\n')
@@ -362,7 +364,7 @@ print'+\n'
     elseif cmd == 'update' then
 	local fruit = msg:match'fruit=(%a+)'
 	addUpdate(msg, PRECIOS, WEEK)
-	msgr:send_msg(format('%s update %s', fruit, date('%FT%T', now()):sub(1, 10)))
+--	msgr:send_msg(format('%s update %s', fruit, date('%FT%T', now()):sub(1, 10)))
 	www:send_msg( msg ) -- WWW
 	print('Data updated correctly\n')
 
@@ -380,8 +382,7 @@ print'+\n'
 	-- week is THIS WEEK
 	local ret = dumpFRUIT(WEEK, vers, week, fruit)
 	print'Adjust process successful!\n'
-	msgr:send_msg(format('%s adjust %s', fruit, ret))
---	msgr:send_msg(format('%s adjust %s.json', fruit, fruit))
+--	msgr:send_msg(format('%s adjust %s', fruit, ret))
 
     elseif cmd == 'faltante' then
 	print( msg )
