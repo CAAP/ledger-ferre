@@ -22,10 +22,10 @@ _ENV = nil -- or M
 
 -- Local Variables for module-only access
 --
+local DOWNSTREAM = 'ipc://downstream.ipc' --  
+
 local UPDATES	 = 'tcp://*:5610'
---local UPSTREAM   = 'tcp://*:5060'
-local SPIES	 = 'inproc://espias'
-local SKS	 = {}
+local SKS	 = {["FA-BJ-01"]=true}
 
 local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 
@@ -43,44 +43,40 @@ local CTX = context()
 
 local ups = assert(CTX:socket'ROUTER')
 --[[ -- -- -- -- --
--- * MONITOR *
-local spy = assert(CTX:socket'PAIR')
-assert( server:monitor( SPIES ) )
-assert( spy:connect( SPIES ) )
 -- -- -- -- -- --]]
 -- ***********
---assert( ups:notify(false) )
 
 assert( ups:curve( secret ) )
 
 assert( ups:bind( UPDATES ) )
 
 print('\nSuccessfully bound to:', UPDATES, '\n')
---[[ -- -- -- -- --
+---[[ -- -- -- -- --
 --
-local msgs = assert(CTX:socket'PULL')
+local tasks = assert(CTX:socket'PUB')
 
-assert( msgs:bind( UPSTREAM ) )
+assert(tasks:bind( DOWNSTREAM ))
 
-print('\nSuccessfully bound to:', UPSTREAM, '\n')
-
+print('Successfully bound to:', DOWNSTREAM, '\n')
 ---[[
 --]]
-print( 'Starting servers ...', '\n' )
---sleep(1)
-
 
 --
 while true do
 
     print'+\n'
 
-    if pollin{ups} then -- msgs, spy
+    if pollin{ups, tasks} then -- msgs, spy
 
 	if ups:events() == 'POLLIN' then
 	    local id, msg = receive( ups )
-	    msg = msg[1]
-	    print( id, msg )
+
+	    if SKS[id] then
+		msg = msg[1] -- XXX assumes one-message only
+		tasks:send_msg( msg )
+		print( id, msg )
+	    end
+
 	end
 
     end
