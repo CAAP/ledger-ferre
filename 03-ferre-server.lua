@@ -37,7 +37,7 @@ local SKS	 = {["FA-BJ-01"]=true}
 local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, unidad, precio NUMBER, unitario NUMBER, qty INTEGER, rea INTEGER, totalCents INTEGER, uidSAT, nombre',
 		   updates = 'tienda, vers INTEGER PRIMARY KEY, clave, msg',
 	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL'}
-local ISSTR	 = {desc=true, fecha=true, proveedor=true, unidad=true, tag=true, uidSAT=true}
+local ISSTR	 = {tienda=true, desc=true, prc=true, uid=true, echa=true, proveedor=true, unidad=true, tag=true, uidSAT=true}
 
 local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
@@ -58,7 +58,7 @@ local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 
 local function smart(v, k) return ISSTR[k] and format("'%s'", tostring(v):upper()) or (tointeger(v) or tonumber(v) or 0) end
 
-local function indexar(a) return fd.reduce(INDEX, fd.map(function(k) return smart(a[k]) end), fd.into, {}) end
+local function indexar(a) return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, {}) end
 
 local function updates(cmd, id, old, ret)
     local function wired(s) return {id, 'update', s} end
@@ -98,7 +98,8 @@ local function addTicket(id, msg)
     local q = fromJSON(msg[2])
     q.tienda = id
 
-    q = format('INSERT INTO tickets VALUES ( %s )', concat(indexar(q), ', '))
+    fd.reduce({q}, fd.map(indexar), into'tickets', conn)
+--    q = format('INSERT INTO tickets VALUES ( %s )', concat(indexar(q), ', '))
 
     print(msg[2], '\n')
     print('query:', q, '\n')
