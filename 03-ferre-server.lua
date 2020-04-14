@@ -14,8 +14,9 @@ local context	  = require'lzmq'.context
 local asJSON	  = require'json'.encode
 local fromJSON	  = require'json'.decode
 
-local format	  = require'string'.format
+local format	  = string.format
 local concat	  = table.concat
+local tointeger	  = math.tointeger
 local assert	  = assert
 local print	  = print
 
@@ -26,7 +27,7 @@ _ENV = nil -- or M
 
 -- Local Variables for module-only access
 --
-local DOWNSTREAM = 'ipc://downstream.ipc' --  
+local DOWNSTREAM = 'ipc://downstream.ipc'
 
 local UPDATES	 = 'tcp://*:5610'
 local SKS	 = {["FA-BJ-01"]=true}
