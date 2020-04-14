@@ -109,7 +109,7 @@ end
 local function process(id, msg)
 
     if TICKETS[msg[1]] then
-	return addTicket(w, id, msg)
+	return addTicket(id, msg)
     end
 
 end
