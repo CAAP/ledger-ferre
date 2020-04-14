@@ -92,9 +92,11 @@ local function switch(id, w)
     return ret
 end
 
-local function addTicket(w, msg)
+local function addTicket(w, id, msg)
+    local w = CACHE[id]
     local conn = DB[WEEK]
     local q = fromJSON(msg[2])
+    q.tienda = id
 
     q = format('INSERT INTO tickets VALUES ( %s )', concat(indexar(q), ', '))
 
@@ -105,10 +107,9 @@ local function addTicket(w, msg)
 end
 
 local function process(id, msg)
-    local w = CACHE[id]
 
     if TICKETS[msg[1]] then
-	return addTicket(w, msg)
+	return addTicket(w, id, msg)
     end
 
 end
