@@ -92,7 +92,7 @@ local function switch(id, w)
     return ret
 end
 
-local function addTicket(w, id, msg)
+local function addTicket(id, msg)
     local w = CACHE[id]
     local conn = DB[WEEK]
     local q = fromJSON(msg[2])
