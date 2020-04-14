@@ -9,6 +9,7 @@ local send	  = require'carlos.ferre'.send
 local aspath	  = require'carlos.ferre'.aspath
 local asweek	  = require'carlos.ferre'.asweek
 local connect	  = require'carlos.sqlite'.connect
+local newTable	  = require'carlos.sqlite'.newTable
 local pollin	  = require'lzmq'.pollin
 local context	  = require'lzmq'.context
 local asJSON	  = require'json'.encode
@@ -31,13 +32,16 @@ local DOWNSTREAM = 'ipc://downstream.ipc' --
 local UPDATES	 = 'tcp://*:5610'
 local SKS	 = {["FA-BJ-01"]=true}
 
+local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, unidad, precio NUMBER, unitario NUMBER, qty INTEGER, rea INTEGER, totalCents INTEGER, uidSAT, nombre',
+		   updates = 'tienda, vers INTEGER PRIMARY KEY, clave, msg',
+	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL'}
+
 local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
 local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
 
 local CACHE	 = {}
-
-local conn = assert( connect':inmemory:' )
+local DB	 = {}
 
 local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 
@@ -47,6 +51,7 @@ local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 
 local function updates(cmd, id, old, ret)
     local function wired(s) return {id, 'update', s} end
+    local conn = DB[WEEK]
 
     if cmd == 'vers' then
 	local q = format(UVERS, old)
@@ -81,15 +86,12 @@ end
 ---------------------------------
 
 -- Initialize databases
-local path = aspath'ferre'
-assert( conn.exec(format('ATTACH DATABASE %q AS ferre', path)) )
-assert( conn.exec'CREATE TABLE datos AS SELECT * FROM ferre.datos' )
-assert( conn.exec'DETACH DATABASE ferre' )
+local conn = assert( dbconn(aspath'ferre') )
+DB.ferre = conn
 
-assert( conn.exec(format('ATTACH DATABASE %q AS week', aspath(WEEK))) )
-assert( conn.exec'CREATE TABLE tickets AS SELECT * FROM week.tickets' )
-assert( conn.exec'CREATE TABLE updates AS SELECT * FROM week.updates' )
-assert( conn.exec'DETACH DATABASE week' )
+conn = assert( dbconn(aspath(WEEK), true) )
+fd.reduce(fd.keys(TABS), function(schema, tbname) connexec(WEEK, format(newTable, tbname, schema)) end)
+DB[WEEK] = conn
 
 print("ferre & week DBs were successfully open\n")
 print('updates:', conn.count'updates', 'tickets:', conn.count'tickets', '\n')
@@ -108,16 +110,6 @@ assert( ups:curve( secret ) )
 assert( ups:bind( UPDATES ) )
 
 print('\nSuccessfully bound to:', UPDATES, '\n')
-
---[[ -- -- -- -- --
---
-local tasks = assert(CTX:socket'PUB')
-
-assert(tasks:bind( DOWNSTREAM ))
-
-print('Successfully bound to:', DOWNSTREAM, '\n')
---
---]]
 
 --
 while true do
