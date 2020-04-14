@@ -9,6 +9,7 @@ local send	  = require'carlos.ferre'.send
 local asweek	  = require'carlos.ferre'.asweek
 local dbconn	  = require'carlos.ferre'.dbconn
 local newTable	  = require'carlos.sqlite'.newTable
+local into	  = require'carlos.sqlite'.into
 local pollin	  = require'lzmq'.pollin
 local context	  = require'lzmq'.context
 local asJSON	  = require'json'.encode
