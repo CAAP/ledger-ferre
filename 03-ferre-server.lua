@@ -65,6 +65,8 @@ local function switch(id, w)
     local uid = w.uid
     local ret = {}
 
+print(asJSON(y), '\n')
+
     if vers > y.vers then
 	ret[#ret+1] = {id, 'adjust', 'vers', y.vers}
     elseif vers < y.vers then
@@ -95,7 +97,7 @@ DB[WEEK] = conn
 print("ferre & week DBs were successfully open\n")
 print('updates:', conn.count'updates', 'tickets:', conn.count'tickets', '\n')
 
-fd.reduce(fd.keys(SKS), function(_,s) CACHE[s] = {} end)
+fd.reduce(fd.keys(SKS), function(_,s) CACHE[s] = {vers=0, uid='0'} end)
 fd.reduce(conn.query( QVERS ), function(a) local w = CACHE[a.tienda]; w.vers = a.vers end)
 fd.reduce(conn.query( QTKTS ), function(a) local w = CACHE[a.tienda]; w.uid = a.uid end)
 
@@ -109,6 +111,12 @@ assert( ups:curve( secret ) )
 assert( ups:bind( UPDATES ) )
 
 print('\nSuccessfully bound to:', UPDATES, '\n')
+
+local function receive(srv)
+    local id, more = srv:recv_msg(true)
+    local ms = fd.reduce(function() return srv:recv_msgs(true) end, fd.into, {})
+    return id, ms
+end
 
 --
 while true do
@@ -126,7 +134,8 @@ while true do
 	    if SKS[id] then
 		if cmd == 'Hi' then
 		    local w = fromJSON(msg[2])
-		    ups:send_msgs( switch(id, w) )
+		    local q = switch(id, w)
+		    fd.reduce(q, function(a) ups:send_msgs(a) end)
 		end
 	    end
 
