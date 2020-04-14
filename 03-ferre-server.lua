@@ -42,11 +42,17 @@ local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM 
 local CACHE	 = {}
 local DB	 = {}
 
+local TICKETS	 = {ticket=true, presupuesto=true}
+
+local INDEX
+
 local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 
 -- Local function definitions --
 --------------------------------
 --
+
+local function indexar(a) return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, {}) end
 
 local function updates(cmd, id, old, ret)
     local function wired(s) return {id, 'update', s} end
@@ -65,8 +71,6 @@ local function switch(id, w)
     local uid = w.uid
     local ret = {}
 
-print(asJSON(y), '\n')
-
     if vers > y.vers then
 	ret[#ret+1] = {id, 'adjust', 'vers', y.vers}
     elseif vers < y.vers then
@@ -80,6 +84,26 @@ print(asJSON(y), '\n')
     ret[#ret+1] = {id, 'OK'}
 
     return ret
+end
+
+local function addTicket(w, msg)
+    local conn = DB[WEEK]
+    local q = fromJSON(msg[2])
+
+    q = format('INSERT INTO tickets VALUES ( %s )', concat(indexar(q), ', '))
+    assert( conn.exec( q ) )
+
+    w.uid = q.uid
+    return format('UID:\t%s\n', q.uid)
+end
+
+local function process(id, msg)
+    local w = CACHE[id]
+
+    if TICKETS[msg[1]] then
+	return addTicket(w, msg)
+    end
+
 end
 
 ---------------------------------
@@ -100,6 +124,8 @@ print('updates:', conn.count'updates', 'tickets:', conn.count'tickets', '\n')
 fd.reduce(fd.keys(SKS), function(_,s) CACHE[s] = {vers=0, uid='0'} end)
 fd.reduce(conn.query( QVERS ), function(a) local w = CACHE[a.tienda]; w.vers = a.vers end)
 fd.reduce(conn.query( QTKTS ), function(a) local w = CACHE[a.tienda]; w.uid = a.uid end)
+
+INDEX = conn.header'tickets'
 
 -- Initialize servers
 local CTX = context()
@@ -136,7 +162,12 @@ while true do
 		    local w = fromJSON(msg[2])
 		    local q = switch(id, w)
 		    fd.reduce(q, function(a) ups:send_msgs(a) end)
+
+		elseif TICKETS[cmd] then
+		    print(process( id, msg ), '\n')
+
 		end
+
 	    end
 
 	end
