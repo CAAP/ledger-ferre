@@ -6,16 +6,20 @@ local fd	  = require'carlos.fold'
 
 local receive	  = require'carlos.ferre'.receive
 local send	  = require'carlos.ferre'.send
+local aspath	  = require'carlos.ferre'.aspath
+local asweek	  = require'carlos.ferre'.asweek
+local connect	  = require'carlos.sqlite'.connect
 local pollin	  = require'lzmq'.pollin
 local context	  = require'lzmq'.context
-local keypair	  = require'lzmq'.keypair
+local asJSON	  = require'json'.encode
+local fromJSON	  = require'json'.decode
 
 local format	  = require'string'.format
 local concat	  = table.concat
 local assert	  = assert
 local print	  = print
-local pairs	  = pairs
-local toint	  = math.tointeger
+
+local WEEK	  = asweek( os.time() )
 
 -- No more external access after this point
 _ENV = nil -- or M
@@ -27,38 +31,92 @@ local DOWNSTREAM = 'ipc://downstream.ipc' --
 local UPDATES	 = 'tcp://*:5610'
 local SKS	 = {["FA-BJ-01"]=true}
 
+local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
+local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
+local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
+
+local CACHE	 = {}
+
+local conn = assert( connect':inmemory:' )
+
 local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 
 -- Local function definitions --
 --------------------------------
 --
 
+local function updates(cmd, id, old, ret)
+    local function wired(s) return {id, 'update', s} end
+
+    if cmd == 'vers' then
+	local q = format(UVERS, old)
+	fd.reduce(conn.query(q), fd.map(asJSON), fd.map(wired), fd.into, ret)
+	return ret
+    end
+end
+
+local function switch(id, w)
+    local y = CACHE[id]
+    local vers = w.vers
+    local uid = w.uid
+    local ret = {}
+
+    if vers > y.vers then
+	ret[#ret+1] = {id, 'adjust', 'vers', y.vers}
+    elseif vers < y.vers then
+	updates('vers', id, vers, ret)
+    end
+
+    if uid > y.uid then
+	ret[#ret+1] = {id, 'adjust', 'uid', y.uid}
+    end
+
+    ret[#ret+1] = {id, 'OK'}
+
+    return ret
+end
 
 ---------------------------------
 -- Program execution statement --
 ---------------------------------
---
+
+-- Initialize databases
+local path = aspath'ferre'
+assert( conn.exec(format('ATTACH DATABASE %q AS ferre', path)) )
+assert( conn.exec'CREATE TABLE datos AS SELECT * FROM ferre.datos' )
+assert( conn.exec'DETACH DATABASE ferre' )
+
+assert( conn.exec(format('ATTACH DATABASE %q AS week', aspath(WEEK))) )
+assert( conn.exec'CREATE TABLE tickets AS SELECT * FROM week.tickets' )
+assert( conn.exec'CREATE TABLE updates AS SELECT * FROM week.updates' )
+assert( conn.exec'DETACH DATABASE week' )
+
+print("ferre & week DBs were successfully open\n")
+print('updates:', conn.count'updates', 'tickets:', conn.count'tickets', '\n')
+
+fd.reduce(fd.keys(SKS), function(_,s) CACHE[s] = {} end)
+fd.reduce(conn.query( QVERS ), function(a) local w = CACHE[a.tienda]; w.vers = a.vers end)
+fd.reduce(conn.query( QTKTS ), function(a) local w = CACHE[a.tienda]; w.uid = a.uid end)
+
 -- Initialize servers
 local CTX = context()
 
 local ups = assert(CTX:socket'ROUTER')
---[[ -- -- -- -- --
--- -- -- -- -- --]]
--- ***********
 
 assert( ups:curve( secret ) )
 
 assert( ups:bind( UPDATES ) )
 
 print('\nSuccessfully bound to:', UPDATES, '\n')
----[[ -- -- -- -- --
+
+--[[ -- -- -- -- --
 --
 local tasks = assert(CTX:socket'PUB')
 
 assert(tasks:bind( DOWNSTREAM ))
 
 print('Successfully bound to:', DOWNSTREAM, '\n')
----[[
+--
 --]]
 
 --
@@ -66,24 +124,24 @@ while true do
 
     print'+\n'
 
-    if pollin{ups, tasks} then -- msgs, spy
+    if pollin{ups} then -- msgs, spy, tasks
 
 	if ups:events() == 'POLLIN' then
 	    local id, msg = receive( ups )
+	    local cmd = msg[1]:match'%a+'
+
+	    print(id, concat(msg, '\t'))
 
 	    if SKS[id] then
-		msg = msg[1] -- XXX assumes one-message only
-		tasks:send_msg( msg )
-		print( id, msg )
+		if cmd == 'Hi' then
+		    local w = fromJSON(msg[2])
+		    ups:send_msgs( switch(id, w) )
+		end
 	    end
 
 	end
 
     end
+
 end
----]]
 
-
---[[
-
---]]
