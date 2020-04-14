@@ -6,7 +6,6 @@ local fd	  = require'carlos.fold'
 
 local receive	  = require'carlos.ferre'.receive
 local send	  = require'carlos.ferre'.send
-local aspath	  = require'carlos.ferre'.aspath
 local asweek	  = require'carlos.ferre'.asweek
 local dbconn	  = require'carlos.ferre'.dbconn
 local newTable	  = require'carlos.sqlite'.newTable
@@ -86,10 +85,10 @@ end
 ---------------------------------
 
 -- Initialize databases
-local conn = assert( dbconn(aspath'ferre') )
+local conn = assert( dbconn'ferre' )
 DB.ferre = conn
 
-conn = assert( dbconn(aspath(WEEK), true) )
+conn = assert( dbconn(WEEK, true) )
 fd.reduce(fd.keys(TABS), function(schema, tbname) connexec(WEEK, format(newTable, tbname, schema)) end)
 DB[WEEK] = conn
 
