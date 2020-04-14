@@ -17,6 +17,7 @@ local fromJSON	  = require'json'.decode
 local format	  = string.format
 local concat	  = table.concat
 local tointeger	  = math.tointeger
+local tonumber    = tonumber
 local tostring    = tostring
 local assert	  = assert
 local print	  = print
