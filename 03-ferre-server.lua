@@ -89,7 +89,7 @@ local conn = assert( dbconn'ferre' )
 DB.ferre = conn
 
 conn = assert( dbconn(WEEK, true) )
-fd.reduce(fd.keys(TABS), function(schema, tbname) connexec(WEEK, format(newTable, tbname, schema)) end)
+fd.reduce(fd.keys(TABS), function(schema, tbname) conn.exec(format(newTable, tbname, schema)) end)
 DB[WEEK] = conn
 
 print("ferre & week DBs were successfully open\n")
