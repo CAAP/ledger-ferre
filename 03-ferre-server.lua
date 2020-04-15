@@ -98,7 +98,7 @@ local function addAnUpdate(id, msg)
     local b = {}
     for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
 
-print(asJSON(o))
+print(asJSON(b))
 end
 
 local function addTicket(id, msg)
