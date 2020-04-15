@@ -93,6 +93,11 @@ local function switch(id, w)
     return ret
 end
 
+local function addAnUpdate(id, msg)
+    local w = CACHE[id]
+    local conn = DB.ferre
+end
+
 local function addTicket(id, msg)
     local w = CACHE[id]
     local conn = DB[WEEK]
@@ -100,22 +105,17 @@ local function addTicket(id, msg)
     q.tienda = id
 
     fd.reduce({q}, fd.map(indexar), into'tickets', conn)
---    q = format('INSERT INTO tickets VALUES ( %s )', concat(indexar(q), ', '))
-
-    print(msg[2], '\n')
-    print('query:', q, '\n')
 
     return 'OK'
---    assert( conn.exec( q ) )
-
---    w.uid = q.uid
---    return format('UID:\t%s\n', q.uid)
 end
 
 local function process(id, msg)
+    local cmd = msg[1]
 
-    if TICKETS[msg[1]] then
+    if TICKETS[cmd] then
 	return addTicket(id, msg)
+    elseif cmd == 'update' then
+	return addAnUpdate(id, msg)
     end
 
 end
