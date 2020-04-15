@@ -15,6 +15,10 @@ local context	  = require'lzmq'.context
 local asJSON	  = require'json'.encode
 local fromJSON	  = require'json'.decode
 
+local tonumber  = tonumber
+local tostring	= tostring
+local tointeger = math.tointeger
+
 local format	  = string.format
 local concat	  = table.concat
 
@@ -43,6 +47,13 @@ local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
 local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
 
+local ISSTR	 = {desc=true, fecha=true, obs=true, proveedor=true, gps=true, u1=true, u2=true, u3=true, uidPROV=true}
+local TOLL	 = {costo=true, impuesto=true, descuento=true, rebaja=true}
+local DIRTY	 = {clave=true, tbname=true, fruit=true}
+local PRCS	 = {prc1=true, prc2=true, prc3=true}
+local UPQ	 = 'UPDATE %q SET %s %s'
+local COSTOL 	 = 'costol = costo*(100+impuesto)*(100-descuento)*(1-rebaja/100.0)'
+
 local CACHE	 = {}
 local DB	 = {}
 
@@ -55,6 +66,16 @@ local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 -- Local function definitions --
 --------------------------------
 --
+local function smart(v, k) return ISSTR[k] and format("'%s'", tostring(v):upper()) or (tointeger(v) or tonumber(v) or 0) end
+
+local function reformat(v, k)
+    local vv = smart(v, k)
+    return format('%s = %s', k, vv)
+end
+
+local function found(a, b) return fd.first(fd.keys(a), function(_,k) return b[k] end) end
+
+local function sanitize(b) return function(_,k) return not(b[k]) end end
 
 local function indexar(a) return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, {}) end
 
@@ -90,15 +111,47 @@ local function switch(id, w)
     return ret
 end
 
+local function addUp(clave, w)
+    local conn = DB.ferre
+    local clause = format('WHERE clave LIKE %q', clave)
+    local toll = found(w, TOLL)
+
+    local u = fd.reduce(fd.keys(w), fd.filter(sanitize(DIRTY)), fd.map(reformat), fd.into, {})
+    if #u == 0 then return false end -- safeguard
+    local qry = format(UPQ, 'datos', concat(u, ', '), clause)
+
+---[[
+--    print( qry )
+    pcall(conn.exec( qry ))
+    if toll then
+	qry = format(UPQ, 'datos', COSTOL, clause)
+	pcall(conn.exec( qry ))
+    end
+
+    if found(w, PRCS) or toll then
+	local a = up_precios(conn, w, clause)
+	if toll then up_costos(w, a) end
+    end
+
+end
+
 local function addAnUpdate(id, msg)
     local w = CACHE[id]
     local conn = DB.ferre
     local o = fromJSON(msg[2])
-    local a = fd.first(conn.query(format(QID, o.clave)), function(x) return x end)
-    local b = {}
-    for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
+    o.costol = nil; o.tag = nil;
+    local clave  = o.clave
 
-print(asJSON(o))
+    local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
+    local b = {}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
+    addUp(clave, b)
+
+    conn = DB[WEEK]
+    q.tienda = id
+    fd.reduce({q}, fd.map(asJSON), into'updates', conn)
+
+--    w.vers = conn.count'updates'
+    return 'OK'
 end
 
 local function addTicket(id, msg)
@@ -109,6 +162,7 @@ local function addTicket(id, msg)
 
     fd.reduce({q}, fd.map(indexar), into'tickets', conn)
 
+--    w.uid = q.uid
     return 'OK'
 end
 
