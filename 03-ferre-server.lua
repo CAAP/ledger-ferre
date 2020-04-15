@@ -17,9 +17,8 @@ local fromJSON	  = require'json'.decode
 
 local format	  = string.format
 local concat	  = table.concat
-local tointeger	  = math.tointeger
-local tonumber    = tonumber
-local tostring    = tostring
+
+local pairs	  = pairs
 local assert	  = assert
 local print	  = print
 
@@ -38,8 +37,8 @@ local SKS	 = {["FA-BJ-01"]=true}
 local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, unidad, precio NUMBER, unitario NUMBER, qty INTEGER, rea INTEGER, totalCents INTEGER, uidSAT, nombre',
 		   updates = 'tienda, vers INTEGER PRIMARY KEY, clave, msg',
 	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL'}
-local ISSTR	 = {tienda=true, desc=true, prc=true, uid=true, echa=true, proveedor=true, unidad=true, tag=true, uidSAT=true}
 
+local QID	 = 'SELECT * FROM datos WHERE clave LIKE %q'
 local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
 local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
@@ -56,8 +55,6 @@ local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 -- Local function definitions --
 --------------------------------
 --
-
-local function smart(v, k) return ISSTR[k] and format("'%s'", tostring(v):upper()) or (tointeger(v) or tonumber(v) or 0) end
 
 local function indexar(a) return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, {}) end
 
@@ -96,6 +93,12 @@ end
 local function addAnUpdate(id, msg)
     local w = CACHE[id]
     local conn = DB.ferre
+    local o = fromJSON(msg[2])
+    local a = fd.first(conn.query(format(QID, o.clave)), function(x) return x end)
+    local b = {}
+    for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
+
+print(asJSON(o))
 end
 
 local function addTicket(id, msg)
