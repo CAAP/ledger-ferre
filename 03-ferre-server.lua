@@ -180,7 +180,7 @@ while true do
 		    local q = switch(id, w)
 		    fd.reduce(q, function(a) ups:send_msgs(a) end)
 
-		elseif TICKETS[cmd] then
+		else -- if TICKETS[cmd] then
 		    print(process( id, msg ), '\n')
 
 		end
