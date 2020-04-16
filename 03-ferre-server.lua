@@ -164,13 +164,13 @@ local function addAnUpdate(conn, u)
 	local b = {clave=o.clave}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
 	local q = format("INSERT INTO updates VALUES (%d, %s, '%s')", j+u, clave, addUp(b))
 
+	-- either an update was stored or already in place, update vers
 	assert( DB[WEEK].exec( q ) )
 	print('clave:', clave, '\n')
     end
 end
 
 local function addTickets(id, msg)
-    local w = CACHE[id]
     local conn = DB[WEEK]
 
     if #msg > 8 then
@@ -179,18 +179,14 @@ local function addTickets(id, msg)
 	fd.reduce(msg, fd.map(fromJSON), fd.map(indexar{id}), into'tickets', conn)
     end
 
-    w.uid = fromJSON(msg[#msg]).uid
+    UID[id] = fromJSON(msg[#msg]).uid
     return format('UID:\t%s', w.uid)
 end
 
 local function addUpdates(id, msg)
-    local w = CACHE[id]
     local conn = DB.ferre
     local u = remove(msg, 1)
-
     fd.reduce(msg, addAnUpdate(conn, u-#msg))
-
-    w.vers = u -- either an update was stored or already in place, update vers
     return format('vers:\t%d', u)
 end
 
