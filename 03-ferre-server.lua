@@ -120,10 +120,10 @@ local function addUp(clave, w)
     if #u == 0 then return false end -- safeguard
     local qry = format(UPQ, 'datos', concat(u, ', '), clause)
 
-    pcall(conn.exec( qry ))
+    assert( conn.exec( qry ) )
     if toll then
 	qry = format(UPQ, 'datos', COSTOL, clause)
-	pcall(conn.exec( qry ))
+	assert( conn.exec( qry ) )
     end
 
     if found(w, PRCS) or toll then
