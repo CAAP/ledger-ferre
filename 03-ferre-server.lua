@@ -98,7 +98,7 @@ local function updates(cmd, id, old, ret)
 end
 
 local function switch(id, w)
-    local vv = DB[WEEK].count'updates'
+    local vv = maxV()
     local vers = w.vers
     local uid = UID[id]
     local ret = {}
@@ -220,7 +220,7 @@ fd.reduce(fd.keys(TABS), function(schema, tbname) conn.exec(format(newTable, tbn
 DB[WEEK] = conn
 
 print("ferre & week DBs were successfully open\n")
-print('updates:', conn.count'updates', 'tickets:', conn.count'tickets', '\n')
+print('updates:', maxV(), 'tickets:', conn.count'tickets', '\n')
 
 fd.reduce(fd.keys(SKS), function(_,s) UID[s] = '0' end)
 fd.reduce(conn.query( QTKTS ), function(a) UID[a.tienda] = a.uid end)
