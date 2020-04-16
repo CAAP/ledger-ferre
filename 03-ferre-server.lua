@@ -83,7 +83,7 @@ end
 local function indexar(s)
     return function(a)
 	a.tienda = s
-	return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, w)
+	return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, {})
     end
 end
 
