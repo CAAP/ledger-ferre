@@ -94,7 +94,7 @@ local function updates(cmd, id, old, ret)
 end
 
 local function switch(id, w)
-    local vv = DB[ferre].count'updates'
+    local vv = DB.ferre.count'updates'
     local vers = w.vers
     local uid = UID[id]
     local ret = {}
