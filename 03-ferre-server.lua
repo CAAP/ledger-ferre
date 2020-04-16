@@ -134,7 +134,7 @@ local function addUp(clave, w)
     local toll = found(w, TOLL)
 
     local u = fd.reduce(fd.keys(w), fd.filter(sanitize(DIRTY)), fd.map(reformat), fd.into, {})
-    if #u == 0 then return false end -- safeguard
+    if #u == 0 then return false end
     local qry = format(UPQ, 'datos', concat(u, ', '), clause)
 
     assert( conn.exec( qry ) )
@@ -148,6 +148,7 @@ local function addUp(clave, w)
 	if toll then up_costos(w, a) end
     end
 
+    return true
 end
 
 local function addAnUpdate(id, msg)
@@ -159,16 +160,17 @@ local function addAnUpdate(id, msg)
 
     local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
     local b = {}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
-    addUp(clave, b)
-
-    conn = DB[WEEK]
-    b.clave = o.clave
-    local u = w.vers+1
-    local q = format("INSERT INTO updates VALUES (%q, %d, %s, '%s')", id, u, clave, asJSON(b))
-    assert( conn.exec( q ) )
-
-    w.vers = u
-    return format('vers:\t%d\n', u)
+    if addUp(clave, b) then
+	conn = DB[WEEK]
+	b.clave = o.clave
+	local u = w.vers+1
+	local q = format("INSERT INTO updates VALUES (%q, %d, %s, '%s')", id, u, clave, asJSON(b))
+	assert( conn.exec( q ) )
+	w.vers = u
+	return format('vers:\t%d\n', u)
+    else
+	return 'Empty!\n'
+    end
 end
 
 local function addTicket(id, msg)
@@ -243,7 +245,7 @@ while true do
 	    local id, msg = receive( ups )
 	    local cmd = msg[1]:match'%a+'
 
-	    print(id, concat(msg, '\t'))
+	    print(id, concat(msg, '\t'), '\n')
 
 	    if SKS[id] then
 		if cmd == 'Hi' then
@@ -252,7 +254,7 @@ while true do
 		    fd.reduce(q, function(a) ups:send_msgs(a) end)
 
 		else -- if TICKETS[cmd] then
-		    print(process( id, msg ), '\n')
+		    print(process( id, msg ))
 
 		end
 
