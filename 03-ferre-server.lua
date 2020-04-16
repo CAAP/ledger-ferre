@@ -21,6 +21,7 @@ local tointeger = math.tointeger
 
 local format	  = string.format
 local concat	  = table.concat
+local remove	  = table.remove
 
 local pairs	  = pairs
 local assert	  = assert
@@ -57,8 +58,6 @@ local COSTOL 	 = 'costol = costo*(100+impuesto)*(100-descuento)*(1-rebaja/100.0)
 local CACHE	 = {}
 local DB	 = {}
 
-local TICKETS	 = {ticket=true, presupuesto=true}
-
 local INDEX
 
 local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
@@ -77,7 +76,11 @@ local function found(a, b) return fd.first(fd.keys(a), function(_,k) return b[k]
 
 local function sanitize(b) return function(_,k) return not(b[k]) end end
 
-local function indexar(a) return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, {}) end
+local function indexar(w)
+    return function(a)
+	return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, w)
+    end
+end
 
 local function updates(cmd, id, old, ret)
     local function wired(s) return {id, 'update', s} end
@@ -176,22 +179,26 @@ end
 local function addTicket(id, msg)
     local w = CACHE[id]
     local conn = DB[WEEK]
-    local q = fromJSON(msg[2])
-    q.tienda = id
 
-    fd.reduce({q}, fd.map(indexar), into'tickets', conn)
+    if #msg > 8 then
+	fd.slice(5, msg, fd.map(fromJSON), fd.map(indexar{id}), into'tickets', conn)
+    else
+	fd.reduce(msg, fd.map(fromJSON), fd.map(indexar{id}), into'tickets', conn)
+    end
 
-    w.uid = q.uid
-    return format('UID:\t%s\n', q.uid)
+    w.uid = fromJSON(msg[#msg]).uid
+    return format('UID:\t%s\n', w.uid)
 end
 
 local function process(id, msg)
-    local cmd = msg[1]
+    local cmd = remove(msg, 1)
 
-    if TICKETS[cmd] then
-	return addTicket(id, msg)
+    if cmd == 'ticket' then
+	return addTickets(id, msg)
+
     elseif cmd == 'update' then
 	return addAnUpdate(id, msg)
+
     end
 
 end
@@ -254,7 +261,7 @@ while true do
 		    fd.reduce(q, function(a) ups:send_msgs(a) end)
 
 		else -- if TICKETS[cmd] then
---		    print(process( id, msg ))
+		    print(process( id, msg ))
 
 		end
 
