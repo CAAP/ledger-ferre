@@ -154,29 +154,26 @@ local function addUp(clave, w)
     return true
 end
 
-local function addAnUpdate(id, msg)
-    local w = CACHE[id]
-    local conn = DB.ferre
-    local o = fromJSON(msg[2])
-    o.costol = nil; o.tag = nil;
-    local clave  = tointeger(o.clave) or format('%q', o.clave)
+local function addAnUpdate(u)
+    return function(s, k)
+	local o = fromJSON(s)
+	o.costol = nil
+	local clave  = tointeger(o.clave) or format('%q', o.clave)
 
-    local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
-    local b = {}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
-    if addUp(clave, b) then
-	conn = DB[WEEK]
-	b.clave = o.clave
-	local u = w.vers+1
-	local q = format("INSERT INTO updates VALUES (%q, %d, %s, '%s')", id, u, clave, asJSON(b))
-	assert( conn.exec( q ) )
-	w.vers = u
-	return format('vers:\t%d\n', u)
-    else
-	return 'Empty!\n'
+	local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
+	local b = {}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
+
+	if addUp(clave, b) then
+	    conn = DB[WEEK]
+	    b.clave = o.clave
+	    local q = format("INSERT INTO updates VALUES (%q, %d, %s, '%s')", id, k+u, clave, asJSON(b))
+	    assert( conn.exec( q ) )
+	    print('clave:', clave, '\n')
+	end
     end
 end
 
-local function addTicket(id, msg)
+local function addTickets(id, msg)
     local w = CACHE[id]
     local conn = DB[WEEK]
 
@@ -187,7 +184,18 @@ local function addTicket(id, msg)
     end
 
     w.uid = fromJSON(msg[#msg]).uid
-    return format('UID:\t%s\n', w.uid)
+    return format('UID:\t%s', w.uid)
+end
+
+local function addUpdates(id, msg)
+    local w = CACHE[id]
+    local conn = DB.ferre
+    local u = remove(msg, 1)
+
+    fd.reduce(msg, addAnUpdate(u))
+
+    w.vers = u -- either an update was stored or already in place, update vers
+    return format('vers:\t%d', u)
 end
 
 local function process(id, msg)
@@ -197,7 +205,7 @@ local function process(id, msg)
 	return addTickets(id, msg)
 
     elseif cmd == 'update' then
-	return addAnUpdate(id, msg)
+	return addUpdates(id, msg)
 
     end
 
@@ -261,7 +269,7 @@ while true do
 		    fd.reduce(q, function(a) ups:send_msgs(a) end)
 
 		else -- if TICKETS[cmd] then
-		    print(process( id, msg ))
+		    print(process( id, msg ), '\n')
 
 		end
 
