@@ -65,6 +65,8 @@ local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 -- Local function definitions --
 --------------------------------
 --
+local function plain(a) return fromJSON(a) end
+
 local function smart(v, k) return ISSTR[k] and format("'%s'", tostring(v):upper()) or (tointeger(v) or tonumber(v) or 0) end
 
 local function reformat(v, k)
@@ -174,9 +176,9 @@ local function addTickets(id, msg)
     local conn = DB[WEEK]
 
     if #msg > 8 then
-	fd.slice(5, msg, fd.map(fromJSON), fd.map(indexar{id}), into'tickets', conn)
+	fd.slice(5, msg, fd.map(plain), fd.map(indexar{id}), into'tickets', conn)
     else
-	fd.reduce(msg, fd.map(fromJSON), fd.map(indexar{id}), into'tickets', conn)
+	fd.reduce(msg, fd.map(plain), fd.map(indexar{id}), into'tickets', conn)
     end
 
     UID[id] = fromJSON(msg[#msg]).uid
