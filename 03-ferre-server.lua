@@ -111,6 +111,23 @@ local function switch(id, w)
     return ret
 end
 
+local function up_costos(w, a) -- conn
+    for k in pairs(TOLL) do w[k] = nil end
+    fd.reduce(fd.keys(a), fd.filter(function(_,k) return k:match'^precio' or k:match'^costo' end), fd.merge, w)
+    return w
+end
+
+local function up_precios(conn, w, clause)
+    local qry = format('SELECT * FROM precios %s LIMIT 1', clause)
+    local a = fd.first(conn.query(qry), function(x) return x end)
+
+    fd.reduce(fd.keys(w), fd.filter(function(_,k) return k:match'prc' end), fd.map(function(_,k) return k:gsub('prc', 'precio') end), fd.rejig(function(k) return a[k], k end), fd.merge, w)
+
+    for k in pairs(PRCS) do w[k] = nil end
+
+    return a, w
+end
+
 local function addUp(clave, w)
     local conn = DB.ferre
     local clause = format('WHERE clave LIKE %s', clave)
