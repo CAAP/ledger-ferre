@@ -254,7 +254,7 @@ while true do
 		    fd.reduce(q, function(a) ups:send_msgs(a) end)
 
 		else -- if TICKETS[cmd] then
-		    print(process( id, msg ))
+--		    print(process( id, msg ))
 
 		end
 
