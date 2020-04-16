@@ -40,11 +40,11 @@ local UPDATES	 = 'tcp://*:5610'
 local SKS	 = {["FA-BJ-01"]=true}
 
 local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, unidad, precio NUMBER, unitario NUMBER, qty INTEGER, rea INTEGER, totalCents INTEGER, uidSAT, nombre',
-		   updates = 'tienda, vers INTEGER PRIMARY KEY, clave, msg',
-	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL'}
+	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL',
+		   updates = 'vers INTEGER PRIMARY KEY, clave, msg'} -- just ONE ledger & ups record
 
 local QID	 = 'SELECT * FROM datos WHERE clave LIKE %s'
-local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
+--local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
 local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
 
@@ -55,7 +55,7 @@ local PRCS	 = {prc1=true, prc2=true, prc3=true}
 local UPQ	 = 'UPDATE %q SET %s %s'
 local COSTOL 	 = 'costol = costo*(100+impuesto)*(100-descuento)*(1-rebaja/100.0)'
 
-local CACHE	 = {}
+local UID	 = {}
 local DB	 = {}
 
 local INDEX
@@ -94,19 +94,19 @@ local function updates(cmd, id, old, ret)
 end
 
 local function switch(id, w)
-    local y = CACHE[id]
+    local vv = DB[ferre].count'updates'
     local vers = w.vers
-    local uid = w.uid
+    local uid = UID[id]
     local ret = {}
 
-    if vers > y.vers then
-	ret[#ret+1] = {id, 'adjust', 'vers', y.vers}
-    elseif vers < y.vers then
-	updates('vers', id, vers, ret)
+    if vers > vv then
+	ret[#ret+1] = {id, 'adjust', 'vers', vv}
+    elseif vers < vv then
+--	updates('vers', id, vers, ret)
     end
 
-    if uid > y.uid then
-	ret[#ret+1] = {id, 'adjust', 'uid', y.uid}
+    if w.uid > uid then
+	ret[#ret+1] = {id, 'adjust', 'uid', uid}
     end
 
     ret[#ret+1] = {id, 'OK'}
@@ -131,13 +131,13 @@ local function up_precios(conn, w, clause)
     return a, w
 end
 
-local function addUp(clave, w)
+local function addUp(w)
     local conn = DB.ferre
-    local clause = format('WHERE clave LIKE %s', clave)
+    local clause = format('WHERE clave LIKE %s', w.clave)
     local toll = found(w, TOLL)
 
     local u = fd.reduce(fd.keys(w), fd.filter(sanitize(DIRTY)), fd.map(reformat), fd.into, {})
-    if #u == 0 then return false end
+    if #u == 0 then return '' end
     local qry = format(UPQ, 'datos', concat(u, ', '), clause)
 
     assert( conn.exec( qry ) )
@@ -151,25 +151,21 @@ local function addUp(clave, w)
 	if toll then up_costos(w, a) end
     end
 
-    return true
+    return w
 end
 
 local function addAnUpdate(conn, u)
-    return function(s, k)
+    return function(s, j)
 	local o = fromJSON(s)
 	o.costol = nil
+
 	local clave  = tointeger(o.clave) or format('%q', o.clave)
-
 	local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
-	local b = {}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
+	local b = {clave=o.clave}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
+	local q = format("INSERT INTO updates VALUES (%d, %s, '%s')", j+u, clave, addUp(b))
 
-	if addUp(clave, b) then
-	    conn = DB[WEEK]
-	    b.clave = o.clave
-	    local q = format("INSERT INTO updates VALUES (%q, %d, %s, '%s')", id, k+u, clave, asJSON(b))
-	    assert( conn.exec( q ) )
-	    print('clave:', clave, '\n')
-	end
+	assert( DB[WEEK].exec( q ) )
+	print('clave:', clave, '\n')
     end
 end
 
@@ -192,7 +188,7 @@ local function addUpdates(id, msg)
     local conn = DB.ferre
     local u = remove(msg, 1)
 
-    fd.reduce(msg, addAnUpdate(conn, u))
+    fd.reduce(msg, addAnUpdate(conn, u-#msg))
 
     w.vers = u -- either an update was stored or already in place, update vers
     return format('vers:\t%d', u)
@@ -226,9 +222,8 @@ DB[WEEK] = conn
 print("ferre & week DBs were successfully open\n")
 print('updates:', conn.count'updates', 'tickets:', conn.count'tickets', '\n')
 
-fd.reduce(fd.keys(SKS), function(_,s) CACHE[s] = {vers=0, uid='0'} end)
-fd.reduce(conn.query( QVERS ), function(a) local w = CACHE[a.tienda]; w.vers = a.vers end)
-fd.reduce(conn.query( QTKTS ), function(a) local w = CACHE[a.tienda]; w.uid = a.uid end)
+fd.reduce(fd.keys(SKS), function(_,s) UID[s] = '0' end)
+fd.reduce(conn.query( QTKTS ), function(a) UID[a.tienda] = a.uid end)
 
 INDEX = conn.header'tickets'
 
