@@ -42,7 +42,7 @@ local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, uni
 		   updates = 'tienda, vers INTEGER PRIMARY KEY, clave, msg',
 	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL'}
 
-local QID	 = 'SELECT * FROM datos WHERE clave LIKE %q'
+local QID	 = 'SELECT * FROM datos WHERE clave LIKE %s'
 local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
 local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
@@ -113,15 +113,13 @@ end
 
 local function addUp(clave, w)
     local conn = DB.ferre
-    local clause = format('WHERE clave LIKE %q', clave)
+    local clause = format('WHERE clave LIKE %s', clave)
     local toll = found(w, TOLL)
 
     local u = fd.reduce(fd.keys(w), fd.filter(sanitize(DIRTY)), fd.map(reformat), fd.into, {})
     if #u == 0 then return false end -- safeguard
     local qry = format(UPQ, 'datos', concat(u, ', '), clause)
 
----[[
---    print( qry )
     pcall(conn.exec( qry ))
     if toll then
 	qry = format(UPQ, 'datos', COSTOL, clause)
@@ -140,18 +138,20 @@ local function addAnUpdate(id, msg)
     local conn = DB.ferre
     local o = fromJSON(msg[2])
     o.costol = nil; o.tag = nil;
-    local clave  = o.clave
+    local clave  = tointeger(o.clave) or format('%q', o.clave)
 
     local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
     local b = {}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
     addUp(clave, b)
 
     conn = DB[WEEK]
-    q.tienda = id
-    fd.reduce({q}, fd.map(asJSON), into'updates', conn)
+    b.clave = o.clave
+    local u = w.vers+1
+    local q = format("INSERT INTO updates VALUES (%q, %d, %s, '%s')", id, u, clave, asJSON(b))
+    assert( conn.exec( q ) )
 
---    w.vers = conn.count'updates'
-    return 'OK'
+    w.vers = u
+    return format('vers:\t%d\n', u)
 end
 
 local function addTicket(id, msg)
@@ -162,8 +162,8 @@ local function addTicket(id, msg)
 
     fd.reduce({q}, fd.map(indexar), into'tickets', conn)
 
---    w.uid = q.uid
-    return 'OK'
+    w.uid = q.uid
+    return format('UID:\t%s\n', q.uid)
 end
 
 local function process(id, msg)
