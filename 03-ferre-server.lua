@@ -44,7 +44,7 @@ local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, uni
 		   updates = 'vers INTEGER PRIMARY KEY, clave, msg'} -- just ONE ledger & ups record
 
 local QID	 = 'SELECT * FROM datos WHERE clave LIKE %s'
---local QVERS	 = 'SELECT tienda, MAX(vers) vers FROM updates GROUP BY tienda'
+local QVERS	 = 'SELECT MAX(vers) vers FROM updates'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
 local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
 
@@ -65,18 +65,20 @@ local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 -- Local function definitions --
 --------------------------------
 --
+local function maxV() return fd.first(DB[WEEK].query(QVERS), function(x) return x end).vers  end
+
 local function plain(a) return fromJSON(a) end
 
 local function smart(v, k) return ISSTR[k] and format("'%s'", tostring(v):upper()) or (tointeger(v) or tonumber(v) or 0) end
+
+local function found(a, b) return fd.first(fd.keys(a), function(_,k) return b[k] end) end
+
+local function sanitize(b) return function(_,k) return not(b[k]) end end
 
 local function reformat(v, k)
     local vv = smart(v, k)
     return format('%s = %s', k, vv)
 end
-
-local function found(a, b) return fd.first(fd.keys(a), function(_,k) return b[k] end) end
-
-local function sanitize(b) return function(_,k) return not(b[k]) end end
 
 local function indexar(w)
     return function(a)
@@ -96,7 +98,7 @@ local function updates(cmd, id, old, ret)
 end
 
 local function switch(id, w)
-    local vv = DB.ferre.count'updates'
+    local vv = DB[WEEK].count'updates'
     local vers = w.vers
     local uid = UID[id]
     local ret = {}
