@@ -80,8 +80,9 @@ local function reformat(v, k)
     return format('%s = %s', k, vv)
 end
 
-local function indexar(w)
+local function indexar(s)
     return function(a)
+	a.tienda = s
 	return fd.reduce(INDEX, fd.map(function(k) return a[k] or '' end), fd.into, w)
     end
 end
@@ -178,9 +179,9 @@ local function addTickets(id, msg)
     local conn = DB[WEEK]
 
     if #msg > 8 then
-	fd.slice(5, msg, fd.map(plain), fd.map(indexar{id}), into'tickets', conn)
+	fd.slice(5, msg, fd.map(plain), fd.map(indexar(id)), into'tickets', conn)
     else
-	fd.reduce(msg, fd.map(plain), fd.map(indexar{id}), into'tickets', conn)
+	fd.reduce(msg, fd.map(plain), fd.map(indexar(id)), into'tickets', conn)
     end
 
     UID[id] = fromJSON(msg[#msg]).uid
