@@ -154,7 +154,7 @@ local function addUp(clave, w)
     return true
 end
 
-local function addAnUpdate(u)
+local function addAnUpdate(conn, u)
     return function(s, k)
 	local o = fromJSON(s)
 	o.costol = nil
@@ -192,7 +192,7 @@ local function addUpdates(id, msg)
     local conn = DB.ferre
     local u = remove(msg, 1)
 
-    fd.reduce(msg, addAnUpdate(u))
+    fd.reduce(msg, addAnUpdate(conn, u))
 
     w.vers = u -- either an update was stored or already in place, update vers
     return format('vers:\t%d', u)
