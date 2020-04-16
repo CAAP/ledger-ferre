@@ -185,7 +185,7 @@ local function addTickets(id, msg)
     end
 
     UID[id] = fromJSON(msg[#msg]).uid
-    return format('UID:\t%s', w.uid)
+    return format('UID:\t%s', UID[id])
 end
 
 local function addUpdates(id, msg)
