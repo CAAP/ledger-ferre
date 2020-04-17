@@ -167,7 +167,7 @@ local function addAnUpdate(conn, u)
 
 	local clave  = tointeger(o.clave) or format('%q', o.clave)
 	local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
-	local b = {clave=clave}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
+	local b = {clave=o.clave}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
 	local q = format("INSERT INTO updates VALUES (%d, %s, '%s')", j+u, clave, addUp(b))
 
 	-- either an update was stored or already in place, update vers
