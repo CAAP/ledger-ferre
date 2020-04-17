@@ -145,6 +145,7 @@ local function addUp(w)
     if #u == 0 then return '' end
     local qry = format(UPQ, 'datos', concat(u, ', '), clause)
 
+print(qry)
     assert( conn.exec( qry ) )
     if toll then
 	qry = format(UPQ, 'datos', COSTOL, clause)
