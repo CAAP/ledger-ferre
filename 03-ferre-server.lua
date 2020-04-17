@@ -65,7 +65,7 @@ local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 -- Local function definitions --
 --------------------------------
 --
-local function maxV() return fd.first(DB[WEEK].query(QVERS), function(x) return x end).vers  end
+local function maxV() return fd.first(DB[WEEK].query(QVERS), function(x) return x end).vers or 0  end
 
 local function plain(a) return fromJSON(a) end
 
