@@ -170,7 +170,7 @@ local function addAnUpdate(conn, u)
 	local q = format("INSERT INTO updates VALUES (%d, %s, '%s')", j+u, clave, addUp(b))
 
 	-- either an update was stored or already in place, update vers
-	assert( DB[WEEK].exec( q ) )
+	assert( DB[WEEK].exec( asJSON(q) ) )
 	print('clave:', clave, '\n')
     end
 end
