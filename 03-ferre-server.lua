@@ -37,7 +37,7 @@ _ENV = nil -- or M
 local DOWNSTREAM = 'ipc://downstream.ipc'
 
 local UPDATES	 = 'tcp://*:5610'
-local SKS	 = {["FA-BJ-01"]=true}
+local SKS	 = {["FA-BJ-01"]=true, ["FA-BJ-02"]=true}
 
 local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, unidad, precio NUMBER, unitario NUMBER, qty INTEGER, rea INTEGER, totalCents INTEGER, uidSAT, nombre',
 	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL',
@@ -46,7 +46,7 @@ local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, uni
 local QID	 = 'SELECT * FROM datos WHERE clave LIKE %s'
 local QVERS	 = 'SELECT MAX(vers) vers FROM updates'
 local QTKTS	 = 'SELECT tienda, MAX(uid) uid FROM tickets GROUP BY tienda'
-local UVERS	 = 'SELECT * FROM datos WHERE clave IN (SELECT DISTINCT(clave) FROM updates WHERE vers > %d)'
+local UVERS	 = 'SELECT msg FROM updates WHERE vers > %d'
 
 local ISSTR	 = {desc=true, fecha=true, obs=true, proveedor=true, gps=true, u1=true, u2=true, u3=true, uidPROV=true}
 local TOLL	 = {costo=true, impuesto=true, descuento=true, rebaja=true}
@@ -87,13 +87,13 @@ local function indexar(s)
     end
 end
 
-local function updates(cmd, id, old, ret)
-    local function wired(s) return {id, 'update', s} end
+local function updates(id, old, ret)
+    local function wired(w) return {id, 'update', w.msg} end
     local conn = DB[WEEK]
 
     if cmd == 'vers' then
 	local q = format(UVERS, old)
-	fd.reduce(conn.query(q), fd.map(asJSON), fd.map(wired), fd.into, ret)
+	fd.reduce(conn.query(q), fd.map(wired), fd.into, ret)
 	return ret
     end
 end
@@ -107,7 +107,7 @@ local function switch(id, w)
     if vers > vv then
 	ret[#ret+1] = {id, 'adjust', 'vers', vv}
     elseif vers < vv then
---	updates('vers', id, vers, ret)
+--	updates(id, vers, ret)
     end
 
     if w.uid > uid then
