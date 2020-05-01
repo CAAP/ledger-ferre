@@ -168,7 +168,7 @@ local function addAnUpdate(conn, u)
 	local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
 	local b = {clave=o.clave}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
 	-- save changes for broadcasting
-	local u = DB[WEEK].count'updates' + 1
+--	local u = DB[WEEK].count'updates' + 1
 	local q = format("INSERT INTO updates VALUES (%d, %s, '%s')", j+u, clave, asJSON(b))
 	-- either an update was stored or already in place, update vers
 	assert( DB[WEEK].exec( q ) )
