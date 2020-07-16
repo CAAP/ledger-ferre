@@ -4,8 +4,6 @@
 --
 local fd	  = require'carlos.fold'
 
-local receive	  = require'carlos.ferre'.receive
-local send	  = require'carlos.ferre'.send
 local asweek	  = require'carlos.ferre'.asweek
 local dbconn	  = require'carlos.ferre'.dbconn
 local newTable	  = require'carlos.sqlite'.newTable
@@ -37,7 +35,7 @@ _ENV = nil -- or M
 local DOWNSTREAM = 'ipc://downstream.ipc'
 
 local UPDATES	 = 'tcp://*:5610'
-local SKS	 = {["FA-BJ-01"]=true, ["FA-BJ-02"]=true}
+local SKS	 = {["FA-BJ-00"]=true, ["FA-BJ-01"]=true, ["FA-BJ-02"]=true, ["FA-BJ-03"]=true, ["FA-CA-01"]=true}
 
 local TABS	 = {tickets = 'tienda, uid, tag, prc, clave, desc, costol NUMBER, unidad, precio NUMBER, unitario NUMBER, qty INTEGER, rea INTEGER, totalCents INTEGER, uidSAT, nombre',
 	   	   facturas = 'tienda, uid, fapi PRIMARY KEY NOT NULL, rfc NOT NULL, sat NOT NULL',
@@ -60,7 +58,7 @@ local DB	 = {}
 
 local INDEX
 
-local secret = "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
+local secret = "H<8@=4F{c<i8#X[88=WU(Q2P:N8!4Jb($N7OaS5g" -- "hjLXIbvtt/N57Ara]e!@gHF=}*n&g$odQVsNG^jb"
 
 -- Local function definitions --
 --------------------------------
@@ -91,11 +89,11 @@ local function updates(id, old, ret)
     local function wired(w) return {id, 'update', w.msg} end
     local conn = DB[WEEK]
 
-    if cmd == 'vers' then
+--    if cmd == 'vers' then
 	local q = format(UVERS, old)
 	fd.reduce(conn.query(q), fd.map(wired), fd.into, ret)
 	return ret
-    end
+--    end
 end
 
 local function switch(id, w)
@@ -107,7 +105,7 @@ local function switch(id, w)
     if vers > vv then
 	ret[#ret+1] = {id, 'adjust', 'vers', vv}
     elseif vers < vv then
---	updates(id, vers, ret)
+	updates(id, vers, ret)
     end
 
     if w.uid > uid then
@@ -164,7 +162,7 @@ local function addAnUpdate(conn, u)
 	local o = fromJSON(s)
 	o.costol = nil
 
-	local clave  = tointeger(o.clave) or format('%q', o.clave)
+	local clave = tointeger(o.clave) or format('%q', o.clave)
 	local a = fd.first(conn.query(format(QID, clave)), function(x) return x end)
 	local b = {clave=o.clave}; for k,v in pairs(o) do if a[k] ~= v then b[k] = v end end
 	-- save changes for broadcasting
@@ -177,6 +175,18 @@ local function addAnUpdate(conn, u)
 
 	print('clave:', clave, '\n')
     end
+end
+
+local function approve(s)
+    local w = addUp(fromJSON(s))
+    local clave = tointeger(w.clave) or format('%q', w.clave)
+	-- save changes for broadcasting
+	local u = maxV() + 1
+	local q = format("INSERT INTO updates VALUES (%d, %s, '%s')", u, clave, s)
+	-- either an update was stored or already in place, update vers
+	assert( DB[WEEK].exec( q ) )
+	print('clave:', clave, '\n')
+    return format('vers:\t%d', u)
 end
 
 local function addTickets(id, msg)
@@ -192,7 +202,7 @@ local function addTickets(id, msg)
     return format('UID:\t%s', UID[id])
 end
 
-local function addUpdates(id, msg)
+local function addUpdates(msg)
     local conn = DB.ferre
     local u = remove(msg, 1)
     fd.reduce(msg, addAnUpdate(conn, u-#msg))
@@ -206,7 +216,10 @@ local function process(id, msg)
 	return addTickets(id, msg)
 
     elseif cmd == 'update' then
-	return addUpdates(id, msg)
+	return addUpdates(msg)
+
+    elseif cmd == 'updatew' then
+	return approve(msg[1])
 
     end
 
@@ -246,7 +259,7 @@ print('\nSuccessfully bound to:', UPDATES, '\n')
 
 local function receive(srv)
     local id, more = srv:recv_msg(true)
-    local ms = fd.reduce(function() return srv:recv_msgs(true) end, fd.into, {})
+    local ms = srv:recv_msgs(true) -- fd.reduce(function() return srv:recv_msgs(true) end, fd.into, {})
     return id, ms
 end
 
@@ -263,7 +276,9 @@ while true do
 
 	    print(id, concat(msg, '\t'), '\n')
 
-	    if SKS[id] then
+	    if cmd == 'OK' then
+
+	    elseif SKS[id] then
 		if cmd == 'Hi' then
 		    local w = fromJSON(msg[2])
 		    local q = switch(id, w)
